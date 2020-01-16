@@ -1,0 +1,9 @@
+let takeFirsts tupleList = List.map (fun (x, _) -> x) tupleList
+let takeFirsts3 tupleList = List.map (fun (x, _, _) -> x) tupleList
+let takeSeconds tupleList = List.map (fun (_, y) -> y) tupleList
+let takeSeconds3 tupleList = List.map (fun (_, y, _) -> y) tupleList
+let takeThirds tupleList = List.map (fun (_, _, z) -> z) tupleList
+let takeFstSnd tupleList = List.map (fun (x, y, _) -> (x,y)) tupleList
+let zip l1 l2 = List.map2 (fun x t -> (x, t)) l1 l2
+let unzip l = (takeFirsts l, takeSeconds l)
+let unzip3 l = (takeFirsts3 l, takeSeconds3 l, takeThirds l)
