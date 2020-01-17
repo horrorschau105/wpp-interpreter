@@ -1,0 +1,8 @@
+type X = int;
+type Y = X;
+type Node = Sum(l -> Tuple(X, Ptr (Node)) | r -> Tuple());
+type YYY = Tuple(X, X, Y);
+
+vars(YYY tup := tuple(3,5,6), X X := 4, Node node := r.tuple()) in {
+    skip
+}

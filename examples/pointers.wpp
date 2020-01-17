@@ -1,0 +1,7 @@
+type PSUM = Ptr(Sum(l -> int | r -> int));
+type SUM = Sum(l -> int | r -> int);
+vars( PSUM p1 := new l.5, Ptr(SUM) p2 := new r.5 ) in {
+    *p1 = *p2;
+    p1 = p2;
+    *p2 = *p1    
+}

@@ -1,0 +1,323 @@
+\documentclass{article}
+\usepackage{array}
+\usepackage{amssymb} 
+\usepackage{algpseudocode}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{authblk}
+\usepackage{caption}
+\usepackage[bottom]{footmisc}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{indentfirst}
+\usepackage{layout}
+\usepackage{listings}
+\usepackage{mathtools}
+\usepackage{multirow}
+\usepackage{setspace}
+\geometry{margin=0.7in}
+
+\begin{document}
+
+\title{\textbf{Interpreter języka W++}}
+\date{}
+\author{Piotr Gdowski}
+
+\maketitle
+\section{Składnia języka W++}
+\begin{table}[H]
+    \centering
+    \vspace{1pt}
+    \begin{tabular}{lllp{3.5cm}p{5.6cm}}
+                    &     & \emph{Składnia abstrakcyjna}                     & \emph{Składnia konkretna}                            
+           & \emph{Opis}\\ \hline
+        $\emph{p}$  & ::= & program(\emph{dt*}, \emph{df*}, \emph{dv*}, c)                & \emph{dt*} \emph{df*} vars \emph{dv*} in \emph{c}             & deklaracja typów, funkcji oraz zmiennych \\
+        $\emph{dt}$ & ::= & newtype(\emph{t}, \begin{math}\tau\end{math})                                              & Type \emph{t} = \begin{math}\tau\end{math};                                                & deklaracja typu \\
+        $\emph{df}$ & ::= & function(\emph{f}, (${x : \tau}$)*, \emph{dv*}, \emph{c}, \emph{e}) & function((${x : \tau}$)*) = vars \emph{dv*} in {\emph{c}} return e; & deklaracja funkcji \\
+        $\emph{dv}$ & ::= & newvar(\emph{x}, \emph{e})                                    & \emph{x} := \emph{e}                                          & deklaracja zmiennej \\
+                    &     & newpointer(\emph{x}, \emph{e})                                & \emph{x} := \emph{new e}  
+            & deklaracja wskaźnika \\ 
+                    &     & typednewvar($\tau$, \emph{x}, \emph{e})                        & $\tau$ \emph{x} := \emph{e}                             
+                    & deklaracja zmiennej z własną adnotacją typową\\
+                    &     & typednewpointer($\tau$, \emph{x}, \emph{e})                   & $\tau$ \emph{x} := \emph{new e}                         
+           & deklaracja wskaźnika  z własną adnotacją typową\\
+        $ \emph{c}$ & ::= & \emph{skip}                                                          & \emph{skip}                                                          & pusta instrukcja \\
+                    &     & compose($c_1$, $c_2$)                                 & \emph{c}; \emph{c}                                      & złożenie instrukcji \\
+                    &     & newvars(\emph{dv*}, \emph{c})                                      & vars \emph{dv*} in \emph{c}                              
+           & deklaracja lokalnych zmiennych i wskaźników \\
+                    &     & if(\emph{e}, $c_1$, $c_2$)                                          & if \emph{e} then $c_1$ else $c_2$                                  
+           & instrukcja if \\
+                    &     & while(\emph{e}, \emph{c})                                                   & while \emph{e} do \emph{c}                                  
+           & instrukcja while \\
+                    &     & varassign(\emph{x}, \emph{e})                                               & \emph{x} := \emph{e}                                      
+           & przypisanie wartości do zmiennej\\
+                    &     & pointerassign(\emph{x}, \emph{e})                                           & \emph{*x} := \emph{e}                                     
+           & przypisanie wartości do wartości pod wskaźnikiem \\
+                    &     & callassign(\emph{x}, \emph{f}, $\Vec{x}$)                                         & \emph{x} := f($\Vec{x}$)                             
+           & przypisanie wartości zwróconej przez funkcję \\
+        $ \emph{e}$ & ::= & $\underline{n} $                                              & \emph{n}                                                             & liczba \\
+                    &     & \emph{x}                                                      & \emph{x}                                                   
+           & wartość zmiennej \\
+                    &     & *\emph{x}                                                     & *\emph{x}              
+           & wartość zmiennej wskazywanej przez wskaźnik \\
+                    &     & plus($e_1$, $e_2$)                                                  & \emph{e} + \emph{e}
+           & dodawanie \\
+                    &     & mult($e_1$, $e_2$)                                                  & \emph{e} * \emph{e}
+           & mnożenie \\
+                    &     & minus(\emph{e})                                                      & -\emph{e}
+           & minus \\
+                    &     & tuple(\begin{math}\Vec{e}\end{math})                          & tuple($e_1$, ... , $e_n$) & krotka \\
+                    &     & indexer($e, \underline{n}$)                                               & \emph{e}[\emph{n}]     
+          & wyjęcie z krotki wskazanej wartości \\
+                    &     & injection(l, e)                                               & \emph{l}.\emph{e}
+          & włożenie\\
+                    &     & case(${e, (l.x}\rightarrow e)^{+})$                           & case $e$ $\{ l_1. x\rightarrow e_1, ...,$ $ l_n. x \rightarrow e_n, \} $    
+          & case\\
+        $ \tau $    & ::= & int                                                           & int 
+          & typ liczb całkowitych \\
+                    &     & TTuple($\Vec{\tau}$)                                           & Tuple($\tau_1$, ...,  $\tau_n$) 
+          & typ krotki \\
+                    &     & TSum($ (l \rightarrow \tau)^{+}$)                              & Sum($ l_1\rightarrow\tau_1, ...,$ $ l_n\rightarrow\tau_n$)
+                     & typ sum rozłącznych \\
+                    &     & TPtr($\tau$)                                                   & Ptr($\tau$) 
+          & typ wskaźnikowy \\
+                    &     & TAbs(\emph{t}) & \emph{t} 
+          & typ abstrakcyjny \\
+    \end{tabular}
+\end{table}
+\newpage
+\section{System typów języka W++}
+\begin{itemize}
+    \item $\Gamma$ jest listą zawierającą zmienne wraz z ich typami
+    \item $F$ jest listą zawierającą funkcje wraz z ich definicjami i zwracanymi wyrażeniami 
+    \item $T$ jest listą zawierającą nazwy predefiniowanych typów wraz z jego prawdziwymi typami
+\end{itemize}
+
+\subsection{Typowanie wyrażeń}
+       
+\centerline{$\dfrac{}{\Gamma, x : \tau \vdash x : \tau}$}\vspace{5pt}
+\centerline{$\dfrac{}{\Gamma\vdash \underline{n} : int}$}\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e:TPtr(\tau)}{\Gamma\vdash *e : \tau}$ }\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e_1 : int \quad \Gamma\vdash e_2 : int}{\Gamma\vdash plus(e_1,e_2) : int}$ }\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e_1 : int \quad \Gamma\vdash e_2 : int}{\Gamma\vdash mult(e_1,e_2) : int}$ }\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e:int}{\Gamma\vdash -e : int}$ }\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e_1 : \tau_1 \quad ... \quad \Gamma\vdash e_n : \tau_n}{\Gamma\vdash tuple(e_1, ..., e_n) : TTuple(\tau_1, ..., \tau_n)}$
+}\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e: TTuple(\tau_1, ..., \tau_n) \quad \underline{i} : int}{\Gamma\vdash e[i] : \tau_i}$ }\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e:\tau}{\Gamma\vdash l.e : TSum(l \rightarrow \tau)}$ }\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e : TSum(l_1 \rightarrow \tau_1, ...,
+l_n \rightarrow \tau_n) \quad \Gamma, x : \tau_1 \vdash e_1 : \tau \quad ... \quad \Gamma, x : \tau_n \vdash e_n : \tau }{\Gamma\vdash case(e, l_1.x \rightarrow e_1, ..., l_n.x \rightarrow e_n) : \tau }$}\vspace{5pt}
+
+\subsubsection{Relacja $\preceq$ na typach (podtypowanie)}
+Rozważmy instrukcję $x := l.5$. Przy pomocy powyższych reguł typowania możemy wyinferować typ wyrażenia po lewej stronie - jest to $Sum(l \rightarrow int)$. Oznacza to, że również $x$ powinien być dokładnie takiego typu, aby instrukcja mogła się poprawnie otypować. Wówczas każdy typ sumy miałby dokładnie jeden konstruktor, nie byłoby bowiem możliwości 'zgadnięcia' pozostałych konstruktorów. Z tego powodu dodałem możliwość zdefiniowania w adnotacji typowej wszystkich konstruktorów. 
+Tym sposobem, mamy możliwość przypisywania do zmiennych 'większych' typów wyrażenia 'mniejszych' typów. Intuicyjnie, $T \vdash Sum(l \rightarrow int) \preceq Sum(l \rightarrow int | r \rightarrow int)$, gdzie w $T$ trzymamy predefiniowane typy. Pełna definicja relacji:\newline
+
+\centerline{$\dfrac{}{T \vdash int \preceq int}$}\vspace{5pt}
+
+\centerline{$\dfrac{T \vdash \tau \preceq \tau_2}{T, x : \tau \vdash TAbs(x) \preceq \tau_2 }$}\vspace{5pt}
+
+\centerline{$\dfrac{T \vdash \tau_1 \preceq \tau}{T, x : \tau \vdash \tau_1 \preceq TAbs(x) }$}\vspace{5pt}
+
+\centerline{$\dfrac{T \vdash \tau_1 \preceq \tau_2}{T \vdash TPtr(\tau_1) \preceq TPtr(\tau_2) }$}\vspace{5pt}
+
+\centerline{$\dfrac{T \vdash \tau_1 \preceq \tau'_1 \quad ... \quad T \vdash \tau_n \preceq \tau'_n}{T \vdash TTuple(\tau_1, ..., \tau_n) \preceq TTuple(\tau'_1, ..., \tau'_n) }$}\vspace{5pt}
+
+\centerline{$\dfrac{\forall_{i} \exists_{j} \enspace l_i = k_j \implies \tau_i \preceq \tau_j'}{T \vdash TSum(l_1 \rightarrow \tau_1, ...,
+l_n \rightarrow \tau_n) \preceq TSum(k_1 \rightarrow \tau_1', ...,
+k_m \rightarrow \tau_m')}$}\vspace{5pt}
+
+\subsection{Poprawność sformowania instrukcji}
+
+
+\centerline{$\dfrac{}{T, F, \Gamma \vdash skip \enspace cwf} $}\vspace{5pt}
+\centerline{$\dfrac{T, F, \Gamma \vdash c_1 \enspace cwf \quad T, F, \Gamma \vdash c_1 \enspace cwf}{T, F, \Gamma \vdash compose(c_1, c_2) \enspace cwf} $}\vspace{5pt}
+
+\centerline{$\dfrac{T, F, \Gamma \vdash c \enspace cwf}{T, F, \Gamma \vdash newvars([], c) \enspace cwf  }$}\vspace{5pt}
+
+\centerline{$\dfrac{T, F, \Gamma \vdash e : \tau \quad T, F, \Gamma, x : \tau \vdash newvars(declariations, c) \enspace cwf}{T, F, \Gamma \vdash newvars(newvar(x, e) :: declarations, c) \enspace cwf  }$}\vspace{5pt}
+
+\centerline{$\dfrac{T, F, \Gamma \vdash e : \tau \quad T, F, \Gamma, x : Ptr(\tau) \vdash newvars(declariations, c) \enspace cwf}{T, F, \Gamma \vdash newvars(newpointer(x, e) :: declarations, c) \enspace cwf  }$}\vspace{5pt}
+
+\centerline{$\dfrac{T, F, \Gamma \vdash e : \tau' \quad T \vdash \tau' \preceq \tau \quad T, F, \Gamma, x : \tau \vdash newvars(declariations, c) \enspace cwf}{T, F, \Gamma \vdash newvars(typednewvar(\tau, x, e) :: declarations, c) \enspace cwf  }$}\vspace{5pt}
+
+\centerline{$\dfrac{T, F, \Gamma \vdash e : \tau' \quad T \vdash \tau' \preceq \quad T, F, \Gamma, x : Ptr(\tau) \vdash newvars(declariations, c) \enspace cwf}{T, F, \Gamma \vdash newvars(typednewpointer(\tau, x, e) :: declarations, c) \enspace cwf  }$}\vspace{5pt}
+
+\centerline{$\dfrac{\Gamma\vdash e : int \quad T, F, \Gamma \vdash c_1 \enspace cwf \quad T, F, \Gamma \vdash c_2 \enspace cwf}{T, F, \Gamma \vdash if(e, c_1, c_2) \enspace cwf}$}\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e : int \quad T, F, \Gamma \vdash c \enspace cwf}{T, F, \Gamma \vdash while(e, c) \enspace cwf}$}\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e : \tau \quad \Gamma \vdash x : \tau }{T, F, \Gamma \vdash varassign(x, e) \enspace cwf}$}\vspace{5pt}
+\centerline{$\dfrac{\Gamma\vdash e : \tau \quad \Gamma \vdash x : TPtr(\tau) }{T, F, \Gamma \vdash pointerassign(x, e) \enspace cwf}$}\vspace{5pt}
+\centerline{$\dfrac{\Gamma \vdash x : \tau \quad \Gamma \vdash e_1 : \tau_1 \quad ... \quad \Gamma \vdash e_n : \tau_n }{T, F, (f, x_1 : \tau_1, ..., x_n : \tau_n, e : \tau), \Gamma \vdash callassign(x, f, e_1, ..., e_n) \enspace cwf}$}\vspace{5pt}
+%======================================================================================================
+\subsection{Poprawność sformowania programu}
+
+\subsubsection{Poprawność sformowania typów}
+Na potrzeby typów definiowanych przez użytkownika, potrzebujemy nowego jugdementu sprawdzającego poprawność sformowania typu przy pewnym zbiorze typów T: $ T \vdash \tau \enspace twf$. Reguły są następujące:\newline
+\centerline{$\dfrac{}{T \vdash int \enspace twf}$}\vspace{5pt}
+\centerline{$\dfrac{}{T, x : \tau \vdash TAbs(x) \enspace twf}$}\vspace{5pt}
+\centerline{$\dfrac{T \vdash \tau \enspace twf}{T \vdash TPtr(\tau) \enspace twf}$}\vspace{5pt}
+\centerline{$\dfrac{T \vdash \tau_1 \enspace twf \quad ... \quad T \vdash \tau_n \enspace twf}{T \vdash TTuple(\tau_1, ... , \tau_n) \enspace twf}$}\vspace{5pt}
+\centerline{$\dfrac{T \vdash \tau_1 \enspace twf \quad ... \quad T \vdash \tau_n \enspace twf}{T \vdash TSum(l_1 \rightarrow \tau_1, ... ,l_n \rightarrow \tau_n) \enspace twf}$}\vspace{5pt}
+
+\subsubsection{Poprawność sformowania funkcji}
+Deklaracja funkcji $function(f, x_1 : \tau_1, ..., x_n : \tau_n, dvs', c, e)$ zawiera nazwę funkcji, nazwy argumentów wraz z ich typami, deklarację zmiennych globalnych w tej funkcji, ciało oraz wyrażenie zwracane. Zwracane wyrażenie ma dostęp do zmiennych globalnych oraz argumentów funkcji. Z ciała funkcji można wywołać samego siebie, bądź funkcję zdefiniowaną wyżej w kodzie. Reguły poprawnego sformowania funkcji:\newline
+
+\centerline{$\dfrac{\splitdfrac{T \vdash \tau_1 \enspace twf \quad ... \quad T \vdash \tau_n \enspace twf \quad T, F, (x_1 : \tau_1, ..., x_n : \tau_n) \vdash newvars(dvs', newvar(x', e)) \enspace cwf \quad (x' \enspace fresh)} {\quad T, F, (f, x_1 : \tau_1, ..., x_n : \tau_n, e : \tau), (x_1 : \tau_1, ..., x_n : \tau_n) \vdash newvars(dvs', c) \enspace cwf}}{T, F \vdash function(f, x_1 : \tau_1, ..., x_n : \tau_n, dvs', c, e) \enspace fwf}$}\vspace{5pt}
+
+\subsubsection{Właściwe reguły}
+\centerline{$\dfrac{\emptyset, \emptyset, \emptyset \vdash program(dts, dfs, dvs, c) \enspace pwf}{program(dts, dfs, dvs, c) \enspace pwf}$}\vspace{5pt}
+
+\centerline{$\dfrac{T \vdash \tau \enspace twf \quad T, (t : \tau), F, \Gamma \vdash program(dts, dfs, dvs, c) \enspace pwf}{T, F, \Gamma \vdash program(newtype(t, \tau) :: dts, dfs, dvs, c) \enspace pwf}$}\vspace{5pt}
+
+\centerline{$\dfrac{T, F \vdash function(f, x_1 : \tau_1, ..., x_n : \tau_n, dvs', c, e) \enspace fwf \quad T, F, (f, x_1 : \tau_1, ..., x_n : \tau_n, e : \tau), \Gamma 
+\vdash program([], dfs, dvs, c) \enspace pwf}{T, F, \Gamma \vdash program([], function(f, x_1 : \tau_1, ..., x_n : \tau_n, dvs', c, e) :: dfs, dvs, c) \enspace pwf}$}\vspace{5pt} 
+
+\centerline{$\dfrac{T, F, \Gamma \vdash newvars(dvs, c) \enspace cwf }{T, F, \Gamma \vdash program([], [], dvs, c) \enspace pwf}$}\vspace{5pt} 
+
+\section{Semantyka operacyjna języka W++}
+
+\subsection{Definicje wartości i postaci końcowych}
+\centerline{$\dfrac{}{\underline{n} \enspace val}$}\vspace{5pt}
+\centerline{$\dfrac{}{EPtr(e) \enspace val}$}\vspace{5pt}
+\centerline{$\dfrac{e_1 \enspace val \quad ... \quad e_n \enspace val}{ETuple(e_1, ..., e_n) \enspace val}$}\vspace{5pt}
+\centerline{$\dfrac{e \enspace val}{l.e \enspace val}$}\vspace{5pt}
+
+$EPtr(e)$ jest sztucznym wyrażeniem, służy jako wartość dla zmiennej typu wskaźnikowego
+
+\centerline{$\dfrac{}{skip \enspace cfinal}$}\vspace{5pt}
+
+\centerline{$\dfrac{}{Program(skip) \enspace pfinal}$}\vspace{5pt}
+
+\subsection{Semantyka małych kroków}
+
+\begin{itemize}
+    \item $M$ jest pamięcią programu, przechowującą wartości zmiennych.
+    \item $H$ jest stertą, pamiętającą wartości wskazywane przez wskaźniki.
+    \item $F$ jest listą zdefiniowanych funkcji.
+\end{itemize}
+
+\subsubsection{Wyrażenia}
+
+\centerline{$\dfrac{}{H, (M, x \hookrightarrow v) \enspace x \longmapsto H, (M, x \hookrightarrow v) \enspace v}$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e_1 \longmapsto H, M \enspace e_1'}{H, M \enspace e_1 + e_2 \longmapsto H, M \enspace e_1' + e_2}$}\vspace{5pt}
+
+\centerline{$\dfrac{e_1 \enspace val \quad H, M \enspace e_2  \longmapsto H, M \enspace e_2'}{H, M \enspace e_1 + e_2 \longmapsto H, M \enspace e_1 + e_2'}$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e_1 \longmapsto H, M \enspace e_1'}{H, M \enspace e_1 + e_2 \longmapsto H, M \enspace e_1' * e_2}$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e \longmapsto H, M \enspace e'}{H, M \enspace -e \longmapsto H, M \enspace -e'}$}\vspace{5pt}
+
+\centerline{$\dfrac{}{H, M \enspace -\underline{n} \longmapsto H, M \enspace \underline{-n}}$}\vspace{5pt}
+
+\centerline{$\dfrac{e_1 \enspace val \quad ... \quad e_{i-1} \enspace val \quad H, M \enspace e_i \longmapsto H, M \enspace e_i' }{H, M \enspace ETuple(e_1, ..., e_i, ..., e_n) \longmapsto H, M \enspace ETuple(e_1, ..., e_i', ..., e_n)}$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace t \longmapsto H, M \enspace t'}{H, M \enspace t[\underline{m}] \longmapsto H, M \enspace t'[\underline{m}]}$}\vspace{5pt}
+
+\centerline{$\dfrac{ETuple(e_1, ..., e_i, ..., e_n) \enspace val}{H, M \enspace ETuple(e_1, ..., e_i, ..., e_n)[\underline{m}] \longmapsto H, M \enspace e_m}$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e \longmapsto H, M \enspace e'}{H, M \enspace l.e \longmapsto H, M \enspace l.e' }$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e \mapsto H, M \enspace e'}{H, M \enspace case \enspace e \enspace of \{ l_1.x \rightarrow e_1, ...,  l_n.x \rightarrow e_n\} \longmapsto H, M \enspace case \enspace e' \enspace of \{ l_1.x \rightarrow e_1, ...,  l_n.x \rightarrow e_n\} }$}\vspace{5pt}
+
+\centerline{$\dfrac{l_i.e \enspace val}{H, M \enspace case \enspace l_i.e \enspace of \{ l_1.x \rightarrow e_1, ..., l_i.x \rightarrow e_i, ...,  l_n.x \rightarrow e_n\} \longmapsto H, M \enspace [e / x]e_i }$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e \longmapsto H, M \enspace e'}{H, M \enspace *e \longmapsto H, M \enspace *e'}$}\vspace{5pt}
+
+\centerline{$\dfrac{}{(H, x \hookrightarrow v), M \enspace *EPtr(x) \longmapsto (H, x \hookrightarrow v), M \enspace v}$}\vspace{5pt}
+
+\subsection{Instrukcje}
+
+\centerline{$\dfrac{H, M \enspace e \longmapsto H, M \enspace e'}{F, H, M \enspace x:=e \longmapsto F, H, M \enspace x:=e'}$}\vspace{5pt}
+
+\centerline{$\dfrac{e \enspace val}{F, H, (M, x\hookrightarrow \_) \enspace x:=e \longmapsto F, H, (M, x \hookrightarrow e) \enspace skip}$}\vspace{5pt}
+
+\centerline{$\dfrac{F, H, M \enspace c_1 \longmapsto F, H', M' \enspace c_1'}{F, H, M \enspace (c_1 ; c_2) \longmapsto F, H', M' \enspace (c_1'; c_2)  }$}\vspace{5pt}
+
+\centerline{$\dfrac{}{F, H, M \enspace (skip ; c_2) \longmapsto F, H, M \enspace c_2 }$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e \longmapsto H, M \enspace e'}{F, H, M \enspace IfThenElse(e, c_1, c_2) \longmapsto F, H, M \enspace IfThenElse(e', c_1, c_2)  }$}\vspace{5pt}
+
+\centerline{$\dfrac{e = \underline{0}}{F, H, M \enspace IfThenElse(e, c_1, c_2) \longmapsto F, H, M \enspace c_1  }$}\vspace{5pt}
+
+\centerline{$\dfrac{e \neq \underline{0}}{F, H, M \enspace IfThenElse(e, c_1, c_2) \longmapsto F, H, M \enspace c_2  }$}\vspace{5pt}
+
+\centerline{$\dfrac{}{F, H, M \enspace While(e, c) \longmapsto F, H, M \enspace IfThenElse(e, skip, (c; While(e, c)))  }$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e \longmapsto H, M \enspace e'}{F, H, M \enspace newvar(x, e, c) \longmapsto F, H, M \enspace newvar(x, e', c)  }$}\vspace{5pt}
+
+\centerline{$\dfrac{e \enspace val \quad x \notin M \quad F, H, (M, x \hookrightarrow e)  \enspace c \longmapsto F, H', (M', x \hookrightarrow e') \enspace c'}{F, H, M \enspace newvar(x, e, c) \longmapsto F, H, M \enspace newvar(x, e, c')  }$}\vspace{5pt}
+
+\centerline{$\dfrac{e \enspace val \quad x \in M \quad F, H, M  \enspace c \longmapsto F, H', M' \enspace c'}{F, H, M \enspace newvar(x, e, c) \longmapsto F, H, M \enspace newvar(x, e, c')  }$}\vspace{5pt}
+
+\centerline{$\dfrac{c \enspace cfinal}{F, H, (M, x \hookrightarrow \_) \enspace newvar(x, e, c) \longmapsto F, H, M \enspace skip  }$}\vspace{5pt}
+
+\centerline{$\dfrac{}{F, H, M \enspace typednewvar(\tau,x, e, c) \longmapsto F, H, M \enspace newvar(x, e, c)  }$}\vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e \longmapsto H, M \enspace e'}{F, H, M \enspace newpointer(x, e, c) \longmapsto F, H, M \enspace newpointer(x, e', c)  }$}\vspace{5pt}
+
+\centerline{$\dfrac{e \enspace val \quad x \notin M \quad F, (H, x \hookrightarrow e), (M, x \hookrightarrow EPtr(x))  \enspace c \longmapsto F, (H', x \hookrightarrow e'), (M', x \hookrightarrow EPtr(x')) \enspace c'}{F, H, M \enspace newpointer(x, e, c) \longmapsto F, H, M \enspace newpointer(x, e, c')  }$}\vspace{5pt}
+
+\centerline{$\dfrac{e \enspace val \quad x \in M \quad F, H, M  \enspace c \longmapsto F, H', M' \enspace c'}{F, H, M \enspace newpointer(x, e, c) \longmapsto F, H, M \enspace newpointer(x, e, c')  }$}\vspace{5pt}
+
+\centerline{$\dfrac{c \enspace cfinal}{F, H, (M, x \hookrightarrow \_) \enspace newpointer(x, e, c) \longmapsto F, H, M \enspace skip  }$}\vspace{5pt}
+
+\centerline{$\dfrac{}{F, H, M \enspace typednewpointer(\tau,x, e, c) \longmapsto F, H, M \enspace newpointer(x, e, c)  }$}\vspace{5pt}
+
+\centerline{$\dfrac{e_1 \enspace val \quad ... \quad e_{i-1} \enspace val \quad H, M \enspace e_i \longmapsto H, M \enspace e_i' }{F, H, M \enspace x:= f(e_1, ..., e_i, ..., e_n) \longmapsto F, H, M \enspace x:= f(e_1, ..., e_i', ..., e_n)}$}  \vspace{5pt}
+
+\centerline{$\dfrac{e_1 \enspace val \quad ... \quad e_n \enspace val \quad  }{(F, (f; x_1, ..., x_n; c; e)), H, M \enspace x:= f(e_1, ..., e_i, ..., e_n) \longmapsto F, H, M \enspace x:= [F, H, (x_1 \hookrightarrow e_1, ...,  x_n \hookrightarrow e_n) \enspace (c;e)]}$}  \vspace{5pt}
+
+\centerline{$\dfrac{F, H', M' \enspace c \longmapsto F, H'', M'' c' }{F, H, M \enspace x:= [F, H', M' \enspace (c;e)] \longmapsto F, H'', M \enspace x:= [F, H'', M'' \enspace (c';e)]}$}  \vspace{5pt}
+
+\centerline{$\dfrac{c \enspace cfinal \quad H, M' \enspace e \longmapsto H, M' \enspace e' }{F, H, M \enspace x:= [F, H, M' \enspace (c;e)] \longmapsto F, H, M \enspace x:= [F, H, M' \enspace (c;e')]}$}  \vspace{5pt}
+
+\centerline{$\dfrac{c \enspace cfinal \quad e \enspace val }{F, H, M \enspace x:= [F, H, M' \enspace (c;e)] \longmapsto F, H, M \enspace x:= e}$}  \vspace{5pt}
+
+\centerline{$\dfrac{H, M \enspace e \longmapsto H, M \enspace e'}{F, H, M \enspace *x:=e \longmapsto F, H, M \enspace *x:=e'}$}\vspace{5pt}
+
+\centerline{$\dfrac{e \enspace val}{F, (H, y \hookrightarrow \_), (M, x\hookrightarrow EPtr(y)) \enspace *x:=e \longmapsto F, (H, y \hookrightarrow e), (M, x \hookrightarrow EPtr(y)) \enspace skip}$}\vspace{5pt}
+
+\subsection{Program}
+
+\centerline{$\dfrac{}{p \longmapsto \emptyset, \emptyset, \emptyset \enspace p}$}\vspace{5pt}
+
+\centerline{$\dfrac{}{F, H, M \enspace newtype(\tau, t, p) \longmapsto F, H, M \enspace p}$}\vspace{5pt}
+
+\centerline{$\dfrac{}{F, H, M \enspace newfunc(f; x_1, ..., x_n; c; e; p) \longmapsto (F, (f; x_1,...,x_n;c;e)), H, M \enspace p}$}\vspace{5pt}
+
+\centerline{$\dfrac{}{F, H, M \enspace pcommand(c) \longmapsto F, H, M \enspace c}$}\vspace{5pt}
+
+\section{Bezpieczeństwo typów}
+
+\Large{Twierdzenie: Jeśli $p \enspace pwf$ i $p \mapsto p'$ to $p' \enspace pwf$}
+\section{Postęp obliczeń}
+\Large{Twierdzenie: Jeśli $p \enspace pwf$ to $\exists{p'} \enspace p \mapsto p'$ lub $p \enspace pfinal $}
+
+\normalsize{}
+
+\section{Inne uwagi, które nie pasują nigdzie indziej}
+\begin{itemize}
+    \item Prezentowane reguły typowania i semantyki małych kroków odpowiada dokładnie implementacji.
+    \item Ciąg deklaracji zmiennych i wskaźników (np. $vars(x:= 1, y:= 3, r:= 3) in \{skip\}$ jest w czasie parsowania zamieniany na jedną, zagnieżdżoną instrukcję, tak jak w języku $W$ - ($newvar(x, 1, newvar(y, 3, newvar(r, 3, skip))) $)
+    \item Podobnie rozwiązany jest rozwiązany problem nowych funkcji i typów definiowanych przez użytkownika. W pliku $syntax.ml$ znajdują się wszystkie definicje typów.
+    \item Definicja funkcji wymaga podania typu wszystkich argumentów.
+    \item Stos wywołań funkcji w języku $W++$ jest symulowany stosem w języku $OCaml$ (metoda $processFunctionCall$ w pliku $eval.ml$). 
+    \item Nazwy zmiennej w ciele instrukcji nigdy nie może zostać przesłonięta.
+    \item Indekser krotki musi zawsze być liczbą naturalną.
+    \item Krotki są niemutowalne - aby zmienić jej jedną współrzędną, należy stworzyć nową.
+    \item Zmienna typu wskaźnikowego w pamięci trzyma etykietę komórki pamięci na stercie.
+    \item Raz zaalokowana wartość na stercie nie może zostać usunięta, co najwyżej można ją ponownie nadpisać.
+    \item W case'ie wszystkie przypadki muszą zostać zdefiniowane.
+    \item Typ abstrakcyjny nie musi być zdefiniowany tylko pod wskaźnikiem.
+    \item Plik $Readme.md$ zawiera informacje o komplikowaniu i uruchamianiu kodu.
+    \item Funkcja może zwrócić wskaźnik.
+    \item Jedyny sposób, by zadeklarować zmienną typu $TSum$ z więcej niż jednym konstruktorem, to wpisać cały typ w adnotacji typowej.
+    \item Średnik po ostatniej instrukcji powoduje $SyntaxError$.
+    \item Błędy typowania są w miarę dobrze opisane w ramach wyjątków. Jeśli program się otypował, to powinien się poprawnie wykonać (tj. zakończyć lub zapętlić).
+    \item Katalog $examples/$ zawiera przykładowe programy.
+    
+\end{itemize}
+\end{document}

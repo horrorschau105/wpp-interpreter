@@ -1,0 +1,43 @@
+type X = int;
+type Node = Sum(l -> Tuple(X, Ptr (Node)) | r -> Tuple());
+type T = X;
+function double(X X) = vars() in {
+    skip
+} return 2 * X;
+function factorial(X n) = vars (T acc := 1 + n) in {
+    ifz n then {
+        acc = 1
+    } else {
+        acc = factorial(n + -1);
+        n = double(n);
+        acc = acc * n
+    }
+} return acc;
+function sumelements(Ptr(Node) n) = vars(T result := 0,T a := 0) in {
+    ifz case *n {r.q -> 0 | l.q -> 1} then {
+        skip
+    } else {
+        result = factorial(case *n {r.q -> 1 | l.q -> q[0]});
+        n = case *n {r.q -> n | l.q -> q[1]};
+        a = sumelements(n)
+    }
+} return result + a;
+function sumelements2(Ptr(Node) n) = vars(T result := 0,T a := 0) in {
+    while case *n {r.q -> 0 | l.q -> 1} do {
+        a = factorial(case *n {r.q -> 1 | l.q -> q[0]});
+        result = result + a;
+        n = case *n {r.q -> n | l.q -> q[1]}
+    }
+} return result;
+vars(y := 0, w := new 4) in {
+   vars(
+        Ptr(Node) x := new r.tuple(),
+        Ptr(Node) x1 := new l.tuple(5, x),
+        Ptr(Node) x2 := new l.tuple(8, x1),
+        Ptr(Node) x3 := new l.tuple(4, x2),
+        Ptr(Node) x4 := new l.tuple(6, x3),
+        Ptr(Node) x5 := new l.tuple(7, x4)
+    ) in {
+        y = sumelements2(x5)
+        }
+}

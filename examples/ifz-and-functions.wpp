@@ -1,0 +1,14 @@
+function triple(int x) = vars(y := 4) in {
+    y = x
+} return 3 * y;
+function double(int x) = vars() in {
+    x = triple(x)
+} return 2 * x;
+vars(x := 3) in {
+    x = double(x*3);
+    ifz x +- 54 then {
+        x = 42
+    } else {
+        x = 105
+    }
+}

@@ -1,0 +1,9 @@
+vars(x:= 3) in {
+    vars(n:= 10, acc:=1) in {
+        while (n) do {
+            acc = acc * n;
+            n = n + -1
+        };
+        x = acc
+    }
+}

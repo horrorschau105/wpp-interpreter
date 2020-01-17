@@ -1,0 +1,10 @@
+vars(int x:= 4, t := tuple(3,4,5)) in {
+    x = x + t[0];
+    x = x + t[1];
+    x = x + t[2];
+    vars( Sum(l -> int | r -> int) sumvar := l.5) in {
+        sumvar = r.3;
+        x = x + case sumvar {l.y -> y+4 | r.y -> y+3}
+    };
+    t = tuple(4,5,6)
+}

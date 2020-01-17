@@ -1,0 +1,11 @@
+function factorial(int n, int nothing) = vars(acc := 1) in {
+    ifz n then {
+        skip
+    } else {
+        nothing = factorial(n +-1, 0);
+        acc = acc * nothing * n
+    }
+} return acc;
+vars(n:= 10) in {
+    n = factorial(n, 0)
+}

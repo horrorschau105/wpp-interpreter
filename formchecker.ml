@@ -117,7 +117,7 @@ let rec inferE types gamma expr =
   end
   | EPoint e ->
   begin
-    match inferE types gamma e with
+    match removeAbstracts types (inferE types gamma e) with
     | TPtr t' -> t'
     | _ -> raise (NotAPointer e)
   end
@@ -135,7 +135,7 @@ and check types gamma expr expected =
   if not (compare types expected infered)
   then raise (TypeMismatch (expected, infered))
   
-and compare types expected infered = (* return true if expected >= infered*)
+and compare types expected infered = (* subtyping check *)
   if not (expected = infered) 
   then match expected, infered with
   | TSum exp, TSum inf -> 
@@ -184,7 +184,7 @@ let rec wellformedC types funcs gamma command =
     check types gamma e (inferE types gamma (EVar x))
   | CPointerAssign(x, e) -> 
   begin
-    match inferE types gamma (EVar x) with
+    match removeAbstracts types (inferE types gamma (EVar x)) with
     | TPtr t' -> check types gamma e t'
     | _ -> raise (NotAPointer e)
   end
